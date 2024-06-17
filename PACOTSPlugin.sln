@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34322.80
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PACOTSPlugin", "PACOTSPlugin.csproj", "{68670E8E-72E6-47C1-AF00-457A52CF38EC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x86 = Debug|x86
+		DebugWithVatsys|Any CPU = DebugWithVatsys|Any CPU
+		DebugWithVatsys|x86 = DebugWithVatsys|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{68670E8E-72E6-47C1-AF00-457A52CF38EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68670E8E-72E6-47C1-AF00-457A52CF38EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68670E8E-72E6-47C1-AF00-457A52CF38EC}.Debug|x86.ActiveCfg = Debug|x86
+		{68670E8E-72E6-47C1-AF00-457A52CF38EC}.Debug|x86.Build.0 = Debug|x86
+		{68670E8E-72E6-47C1-AF00-457A52CF38EC}.DebugWithVatsys|Any CPU.ActiveCfg = DebugWithVatsys|Any CPU
+		{68670E8E-72E6-47C1-AF00-457A52CF38EC}.DebugWithVatsys|Any CPU.Build.0 = DebugWithVatsys|Any CPU
+		{68670E8E-72E6-47C1-AF00-457A52CF38EC}.DebugWithVatsys|x86.ActiveCfg = DebugWithVatsys|x86
+		{68670E8E-72E6-47C1-AF00-457A52CF38EC}.DebugWithVatsys|x86.Build.0 = DebugWithVatsys|x86
+		{68670E8E-72E6-47C1-AF00-457A52CF38EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68670E8E-72E6-47C1-AF00-457A52CF38EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68670E8E-72E6-47C1-AF00-457A52CF38EC}.Release|x86.ActiveCfg = Release|x86
+		{68670E8E-72E6-47C1-AF00-457A52CF38EC}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D19AAF10-293A-47EA-A81B-5BE09A97903B}
+	EndGlobalSection
+EndGlobal
