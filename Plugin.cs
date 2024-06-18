@@ -1,5 +1,4 @@
 ﻿using HtmlAgilityPack;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
@@ -8,6 +7,8 @@ using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Timers;
@@ -25,7 +26,7 @@ namespace NATPlugin
         public string Name => "PACOTS Tracks";
 
         private static readonly string TrackUrl = "https://www.notams.faa.gov/dinsQueryWeb/queryRetrievalMapAction.do?retrieveLocId=KZAK%20RJJJ&actionType=notamRetrievalByICAOs&submit=NOTAMs";
-        private static readonly string SigmetUrl = "https://www.aviationweather.gov/cgi-bin/json/IsigmetJSON.php";
+        private static readonly string SigmetUrl = "https://aviationweather.gov/api/data/isigmet?format=json"; ///https://www.aviationweather.gov/cgi-bin/json/IsigmetJSON.php
         public static HttpClient _httpClient = new HttpClient();
         private static readonly string[] _months = { "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
         private static readonly int UpdateMinutes = 15;
@@ -323,12 +324,12 @@ namespace NATPlugin
 
             if (!getSigmet.IsSuccessStatusCode)
             {
-                // Todo: Plugin error message.
                 return;
             }
+
             var content = await getSigmet.Content.ReadAsStringAsync();
 
-            var sigmets = JsonConvert.DeserializeObject<List<SIGMET>>(content);
+            var sigmets = JsonSerializer.Deserialize<Sigmet>(content);
 
             foreach (var sig in sigmets)
             {
