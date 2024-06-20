@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using System.Timers;
 using vatsys;
 using vatsys.Plugin;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 using static vatsys.DefaultJurisdiction;
 using static vatsys.DisplayMaps.Map.Label;
 using Timer = System.Timers.Timer;
@@ -33,7 +34,7 @@ namespace NATPlugin
 
         public static List<Track> Tracks { get; set; } = new List<Track>();
 
-        public static List<SIGMET> Sigmets { get; set; } = new List<SIGMET>();
+        public static List<Sigmet> Sigmets { get; set; } = new List<Sigmet>();
         public static DateTime? LastUpdated { get; set; }
         private static Timer UpdateTimer { get; set; } = new Timer();
 
@@ -331,44 +332,46 @@ namespace NATPlugin
 
             var sigmets = JsonSerializer.Deserialize<Sigmet>(content);
 
-            foreach (var sig in sigmets)
+            var coordinates = JsonSerializer.Deserialize<Coord>(content);
+
+            double latitude = coordinates.Lat;
+            double longitude = coordinates.Lon;
+
+            var from = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets.ValidTimeFrom.ToString())).DateTime;
+            var to = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets.ValidTimeTo.ToString())).DateTime;
+
+            foreach (var sig in Sigmets)
             {
-                if (sig.FIR != "KZAK") continue;
-                //foreach (var point in sig.Coordinates)
-                for (int c = 0; c < sig.Coordinates.Length; c++)
+                if (sig.FirId != "KZAK") continue;
+
+                for (int c = 0; c < sig.Coords.Count; c++)
                 {
 
-                    // Lat Long
-                    double coordinates = sig.Coordinates[c];
+                    points.Add(new Fix(sig.IsigmetId.ToString(), latitude, longitude));
 
-                    double latitude = coordinates.ToString()[1];
-
-                    double longitude = coordinates.ToString()[0]; ;
-
-                    points.Add(new Fix(sig.Coordinates.ToString(), latitude, longitude));
+                    poly.Add(new Track(sig.IsigmetId.ToString(), from, to, points));
                 }
 
-                poly.Add(new Track(sig.Name, sig.From, sig.To, points));
             }
 
             try
             {
 
-                foreach (var sigmet in sigmets.OrderBy(x => x.Name))
+                foreach (var sigmet in Sigmets.OrderBy(x => x.SeriesId))
                 {
                     var area = new RestrictedAreas.RestrictedArea.Boundary();
 
-                    foreach (var point in sigmet.Coordinates)
+                    foreach (var point in sigmet.Coords)
                     {
-                        area.List.Add(new Coordinate(point, point));
+                        area.List.Add(new Coordinate(coordinates.Lat, coordinates.Lon));
                     }
 
                     var activiations = new List<RestrictedAreas.RestrictedArea.Activation>
                     {
-                        new RestrictedAreas.RestrictedArea.Activation(sigmet.From.ToString(), sigmet.To.ToString())
+                        new RestrictedAreas.RestrictedArea.Activation(from.ToString(), to.ToString())
                     };
 
-                    var ra = new RestrictedAreas.RestrictedArea($"SIG {sigmet.Name}", RestrictedAreas.AreaTypes.Danger, 0, 100)
+                    var ra = new RestrictedAreas.RestrictedArea($"SIG {sigmet.SeriesId}", RestrictedAreas.AreaTypes.Danger, 0, sigmet.Top.Value)
                     {
                         Area = area,
                         LinePattern = DisplayMaps.Map.Patterns.Solid,
