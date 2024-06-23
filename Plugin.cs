@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Drawing;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
@@ -15,8 +16,10 @@ using System.Timers;
 using vatsys;
 using vatsys.Plugin;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
+using static vatsys.Airspace2;
 using static vatsys.DefaultJurisdiction;
 using static vatsys.DisplayMaps.Map.Label;
+using static vatsys.SectorsVolumes;
 using Timer = System.Timers.Timer;
 
 namespace NATPlugin
@@ -137,10 +140,92 @@ namespace NATPlugin
 
                 var fixes = new List<Fix>();
 
-
+                List<Airspace2.Intersection> Intersections = new List<Airspace2.Intersection>();
 
                 foreach (var point in route.Split(' '))
                 {
+                    if (string.IsNullOrWhiteSpace(point)) continue;
+
+                    var isMatch = Regex.Match(point, "[0-9]{2}N[0-9]{3}[E,W]");
+
+                    if (isMatch.Success)
+                    {
+                        // Lat Long
+
+                        double latitude = double.Parse(point.Substring(0, 2));
+
+                        double longitude;
+
+                        if (point.Substring(6, 1) == "E")
+                        {
+                            longitude = double.Parse(point.Substring(3, 3));
+                        }
+                        else
+                        {
+                            longitude = -double.Parse(point.Substring(3, 3));
+                        }
+
+                        fixes.Add(new Fix(point, latitude, longitude));
+                    }
+                    else
+                    {
+                        // Waypoint. Need to check for duplicate  fixes
+                        var fix = Airspace2.GetIntersection(point);
+
+                        if (fix != Intersections.Distinct())
+                        {
+                            for (var f = 0; f < Intersections.Count; f++) 
+                            {
+                                Conversions.CalculateDistance(fix.LatLong, Conversions.ConvertToCoordinate(fixes[f - 1].Latitude.ToString() + fixes[f - 1].Longitude.ToString()));
+                                 fixes.Add(new Fix(point, fix.LatLong.Latitude, fix.LatLong.Longitude)); 
+                            }
+                        }
+                        else
+                        {
+                            Errors.Add(new Exception($"Could not find fix: {point}"), "PACOTS Plugin");
+                        }
+                    }
+                }
+
+                //tracks.Add(new Track(info[4], start, end, fixes));
+            }
+
+           foreach (var tdElement in tdElements)
+           {
+                if (!tdElement.InnerHtml.Contains("EASTBOUND PACOTS")) continue;
+           
+                var words = tdElement.InnerHtml.Replace('\n', ' ').Split(' ');
+
+                var untilIdx = Array.IndexOf(words, "UNTIL");
+                var startYear = int.Parse(words[untilIdx-1]);
+                var startMonth = Array.IndexOf(_months, words[untilIdx-3]);
+
+                var startDay = int.Parse(words[untilIdx - 4]);
+                var startTimeSplit = words[untilIdx - 2].Split(':');
+                var startHour = int.Parse(startTimeSplit[0]);
+                var startMin = int.Parse(startTimeSplit[1]);
+                var endYear = int.Parse(words[untilIdx + 4].Remove(1));
+                var endMonth = Array.IndexOf(_months, words[untilIdx + 2]);
+                var endDay = int.Parse(words[untilIdx + 1]);
+                var endTimeSplit = words[untilIdx + 3].Split(':');
+                var endHour = int.Parse(endTimeSplit[0]);
+                var endMin = int.Parse(endTimeSplit[1]);
+
+                var start = new DateTime(startYear, startMonth, startDay, startHour, startMin, 0);
+                var end = new DateTime(endYear, endMonth, endDay, endHour, endMin, 0);
+                // Assume first ROUTE that appears is the FLEX ROUTE
+                var routeIdx = Array.IndexOf(words, "ROUTE");
+                List<string> flexRoute = new List<string>();
+                var fixes = new List<Fix>();
+
+                for (int rt_i = routeIdx; rt_i < words.Length; rt_i++)
+                {
+                    if (words[rt_i] == "")
+                    {
+                        break;
+                    }
+                    var point = words[rt_i];
+
                     if (string.IsNullOrWhiteSpace(point)) continue;
 
                     var isMatch = Regex.Match(point, "[0-9]{2}N[0-9]{3}[E,W]");
@@ -179,124 +264,14 @@ namespace NATPlugin
                         }
                     }
                 }
+                
+                //if (!lines[3].StartsWith("JAPAN ROUTE") || !lines[3].StartsWith("RCTP / VHHH ROUTE")) route += lines[3].Trim();
 
-                tracks.Add(new Track(info[4], start, end, fixes));
+                
+                tracks.Add(new Track("TDM   ", start, end, fixes));
             }
 
-           //foreach (var tdElement in tdElements)
-           //{
-           //    if (!tdElement.InnerHtml.Contains("EASTBOUND PACOTS")) continue;
-           //
-           //    var lines = tdElement.InnerHtml.Split('\n');
-           //
-           //    var info = lines[1].Split(' ');
-           //
-           //
-           //
-           //        var untilSplit = tdElement.InnerHtml.Split(' ');
-           //        bool reached = false;
-           //        var startYear = untilSplit[3];
-           //        var startMonth = untilSplit[1];
-           //        var startDay = untilSplit[0];
-           //        var startHour = untilSplit[2];
-           //        var startMin = untilSplit[2];
-           //        var endYear = untilSplit[1];
-           //        var endMonth = untilSplit[1];
-           //        var endDay = untilSplit[2];
-           //        var endHour = untilSplit[2];
-           //        var endMin = untilSplit[2];
-           //        var start = startYear + startMonth + startDay + startHour + startMin;
-           //        var end = endYear + endMonth + endDay + endHour + endMin;
-           //        List<string> validities = new List<string>();
-           //
-           //    for (int j = 0; j < _months.Length; j++)
-           //    {
-           //
-           //        if (untilSplit.Contains(_months[j]))
-           //        {
-           //            // Parse the time
-           //            DateTime time = new DateTime(DateTime.UtcNow.Year, j + 1, Convert.ToInt32(start.Split(' ')[0]), Convert.ToInt32(start.Split(' ')[1].Substring(0, 2)), Convert.ToInt32(start.Split(' ')[1].Substring(2, 2)), 0);
-           //            start = Convert.ToString(time.Subtract(new DateTime(1970, 1, 1)).TotalSeconds);
-           //            time = new DateTime(DateTime.UtcNow.Year, j + 1, Convert.ToInt32(end.Split(' ')[0]), Convert.ToInt32(end.Split(' ')[1].Substring(0, 2)), Convert.ToInt32(end.Split(' ')[1].Substring(2, 2)), 0);
-           //            end = Convert.ToString(time.Subtract(new DateTime(1970, 1, 1)).TotalSeconds);
-           //            validities.Add(start + "?" + end + "?");
-           //            reached = true;
-           //        }
-           //        if (reached) // For performance
-           //        {
-           //            break;
-           //        }
-           //
-           //    }
-
-
-
-
-
-                   // if (reached) // For performance
-                   // {
-                   //     break;
-                   // }
-                   //
-                   //
-                   //
-                   //
-                   // var route = lines[2];
-                   // if (!lines[3].StartsWith("JAPAN ROUTE") || !lines[3].StartsWith("RCTP / VHHH ROUTE")) route += lines[3].Trim();
-                   //
-                   // var fixes = new List<Fix>();
-                   //
-                   //
-                   //
-                   // foreach (var point in route.Split(' '))
-                   // {
-                   //     if (string.IsNullOrWhiteSpace(point)) continue;
-                   //
-                   //     var isMatch = Regex.Match(point, "[0-9]{2}N[0-9]{3}[E,W]");
-                   //
-                   //     if (isMatch.Success)
-                   //     {
-                   //         // Lat Long
-                   //
-                   //         double latitude = double.Parse(point.Substring(0, 2));
-                   //
-                   //         double longitude;
-                   //
-                   //         if (point.Substring(6, 1) == "E")
-                   //         {
-                   //             longitude = double.Parse(point.Substring(3, 3));
-                   //         }
-                   //         else
-                   //         {
-                   //             longitude = -double.Parse(point.Substring(3, 3));
-                   //         }
-                   //
-                   //         fixes.Add(new Fix(point, latitude, longitude));
-                   //     }
-                   //     else
-                   //     {
-                   //         // Waypoint. Need to check for duplicate  fixes
-                   //         var fix = Airspace2.GetIntersection(point);
-                   //
-                   //         if (fix != null)
-                   //         {
-                   //             fixes.Add(new Fix(point, fix.LatLong.Latitude, fix.LatLong.Longitude));
-                   //         }
-                   //         else
-                   //         {
-                   //             Errors.Add(new Exception($"Could not find fix: {point}"), "PACOTS Plugin");
-                   //         }
-                   //     }
-                   // }
-                   //
-                   // tracks.Add(new Track(info[1], DateTimeOffset.FromUnixTimeSeconds(long.Parse(start)).DateTime, DateTimeOffset.FromUnixTimeSeconds(long.Parse(end)).DateTime, fixes));
-
-
-            //}
-
-                return tracks;
-
-            
+            return tracks; 
         }
             
         
