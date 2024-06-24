@@ -15,6 +15,7 @@ using System.Timers;
 using vatsys;
 using vatsys.Plugin;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
+using static vatsys.Airspace2;
 using static vatsys.DefaultJurisdiction;
 using static vatsys.DisplayMaps.Map.Label;
 using Timer = System.Timers.Timer;
@@ -43,8 +44,9 @@ namespace NATPlugin
         public Plugin()
         {
             Go();
-
+            GetSigmets();
             _ = GetSigmets();
+            
 
             UpdateTimer.Elapsed += DataTimer_Elapsed;
             UpdateTimer.Interval = TimeSpan.FromMinutes(UpdateMinutes).TotalMilliseconds;
@@ -55,7 +57,9 @@ namespace NATPlugin
         private void DataTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
             Go();
+            GetSigmets();
             _ = GetSigmets();
+            
         }
 
         public static void Go()
@@ -137,6 +141,7 @@ namespace NATPlugin
 
                 var fixes = new List<Fix>();
 
+                List<Intersection> Intersections = new List<Intersection>();
 
 
                 foreach (var point in route.Split(' '))
@@ -144,6 +149,7 @@ namespace NATPlugin
                     if (string.IsNullOrWhiteSpace(point)) continue;
 
                     var isMatch = Regex.Match(point, "[0-9]{2}N[0-9]{3}[E,W]");
+
 
                     if (isMatch.Success)
                     {
@@ -169,8 +175,9 @@ namespace NATPlugin
                         // Waypoint. Need to check for duplicate  fixes
                         var fix = Airspace2.GetIntersection(point);
 
-                        if (fix != null)
+                        if (fix != Intersections.Distinct())
                         {
+                            Airspace2.FindIntersection(fix.LatLong , CalculateD);
                             fixes.Add(new Fix(point, fix.LatLong.Latitude, fix.LatLong.Longitude));
                         }
                         else
@@ -337,8 +344,8 @@ namespace NATPlugin
             double latitude = coordinates.Lat;
             double longitude = coordinates.Lon;
 
-            var from = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets.ValidTimeFrom.ToString())).DateTime;
-            var to = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets.ValidTimeTo.ToString())).DateTime;
+            var from = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets.ValidTimeFrom.ToString("HHmm"))).DateTime;
+            var to = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets.ValidTimeTo.ToString("HHmm"))).DateTime;
 
             foreach (var sig in Sigmets)
             {
