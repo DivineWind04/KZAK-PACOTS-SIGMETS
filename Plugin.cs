@@ -174,6 +174,7 @@ namespace NATPlugin
                     {
                         // Waypoint. Need to check for duplicate  fixes
                         var fix = Airspace2.GetIntersection(point);
+                        var Intersections = new List<Airspace2.Intersection>();
 
                         if (fix != Intersections.Distinct())
                         {
@@ -186,7 +187,7 @@ namespace NATPlugin
                     }
                 }
 
-                //tracks.Add(new Track(info[4], start, end, fixes));
+                tracks.Add(new Track(info[4], start, end, fixes));
             }
 
            foreach (var tdElement in tdElements)
@@ -213,13 +214,14 @@ namespace NATPlugin
                 var start = new DateTime(startYear, startMonth, startDay, startHour, startMin, 0);
                 var end = new DateTime(endYear, endMonth, endDay, endHour, endMin, 0);
                 // Assume first ROUTE that appears is the FLEX ROUTE
-                var routeIdx = Array.IndexOf(words, "ROUTE");
+                var routeIdx = Array.IndexOf(words, "FLEX");
+                var trackIdx = Array.IndexOf(words, "TRACK");
                 List<string> flexRoute = new List<string>();
                 var fixes = new List<Fix>();
 
-                for (int rt_i = routeIdx; rt_i < words.Length; rt_i++)
+                for (int rt_i = routeIdx + 3; rt_i < words.Length; rt_i++)
                 {
-                    if (words[rt_i] == "")
+                    if (words[rt_i] == " " || words[rt_i] == "JAPAN" || words[rt_i] == "RCTP/VHHH" || words[rt_i] == "NAR" || words[rt_i] == "RMK") //words[rt_i] != "FLEX"
                     {
                         break;
                     }
@@ -267,7 +269,7 @@ namespace NATPlugin
                 //if (!lines[3].StartsWith("JAPAN ROUTE") || !lines[3].StartsWith("RCTP / VHHH ROUTE")) route += lines[3].Trim();
 
                 
-                tracks.Add(new Track("TDM   ", start, end, fixes));
+                tracks.Add(new Track(words[trackIdx + 1], start, end, fixes));
             }
 
             return tracks; 
