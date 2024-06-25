@@ -216,21 +216,27 @@ namespace NATPlugin
 
                 // Some entries may contain multiple tracks
                 while (true) {
-                    if (Array.IndexOf(words, "TRACK") == -1) {
+                    var trackIdx = words.IndexOf("TRACK");
+
+                    // If words doesn't contain the word TRACK, we are done processing this entry
+                    if (trackIdx == -1) {
                         break;
                     }
 
-                    var routeIdx = Array.IndexOf(words, "FLEX");
-                    var trackIdx = Array.IndexOf(words, "TRACK");
+                    var routeIdx = words.IndexOf("FLEX");
                     var trackIdTemp = words[trackIdx + 1];
                     // Remove period after the track id
                     var trackId = trackIdTemp.Substring(0, trackIdTemp.Length - 1);
                     var fixes = new List<Fix>();
+                    int cutoffIdx = 0;
 
-                    for (int rt_i = routeIdx + 3; rt_i < words.Length; rt_i++)
+                    for (int rt_i = routeIdx + 3; rt_i < words.Count; rt_i++)
                     {
+                        // If the current word is RMK or the word after is ROUTE, assume that
+                        // this is no longer part of the flex route so break out of for-loop
                         if (words[rt_i + 1] == "ROUTE" || words[rt_i] == "RMK")
                         {
+                            cutoffIdx = rt_i;
                             break;
                         }
                         var point = words[rt_i];
@@ -275,6 +281,7 @@ namespace NATPlugin
                     }
 
                     tracks.Add(new Track(trackId, start, end, fixes));
+                    // Grab slice after the flex route to see if there are any more tracks to process
                     words =  words.Skip(cutoffIdx).ToArray<string>();
                 }
             }
