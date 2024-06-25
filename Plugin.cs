@@ -48,7 +48,7 @@ namespace NATPlugin
             Go();
             GetSigmets();
             _ = GetSigmets();
-            
+
 
             UpdateTimer.Elapsed += DataTimer_Elapsed;
             UpdateTimer.Interval = TimeSpan.FromMinutes(UpdateMinutes).TotalMilliseconds;
@@ -61,7 +61,7 @@ namespace NATPlugin
             Go();
             GetSigmets();
             _ = GetSigmets();
-            
+
         }
 
         public static void Go()
@@ -70,8 +70,8 @@ namespace NATPlugin
 
             try
             {
-                
-                Tracks = GetTracks();               
+
+                Tracks = GetTracks();
 
                 foreach (var track in Tracks.OrderBy(x => x.Id))
                 {
@@ -90,7 +90,7 @@ namespace NATPlugin
                     var ra = new RestrictedAreas.RestrictedArea($"TDM {track.Id}", RestrictedAreas.AreaTypes.Danger, 0, 100)
                     {
                         Area = area,
-                        LinePattern = DisplayMaps.Map.Patterns.Solid,       
+                        LinePattern = DisplayMaps.Map.Patterns.Solid,
                         DAIWEnabled = false,
                         Activations = activiations
                     };
@@ -193,8 +193,8 @@ namespace NATPlugin
            foreach (var tdElement in tdElements)
            {
                 if (!tdElement.InnerHtml.Contains("EASTBOUND PACOTS")) continue;
-           
-                var words = tdElement.InnerHtml.Replace('\n', ' ').Split(' ');
+
+                var words = (IList<string>) new ArraySegment<string>(tdElement.InnerHtml.Replace('\n', ' ').Split(' '));
 
                 var untilIdx = Array.IndexOf(words, "UNTIL");
                 var startYear = int.Parse(words[untilIdx-1]);
@@ -213,69 +213,74 @@ namespace NATPlugin
 
                 var start = new DateTime(startYear, startMonth, startDay, startHour, startMin, 0);
                 var end = new DateTime(endYear, endMonth, endDay, endHour, endMin, 0);
-                // Assume first ROUTE that appears is the FLEX ROUTE
-                var routeIdx = Array.IndexOf(words, "FLEX");
-                var trackIdx = Array.IndexOf(words, "TRACK");
-                List<string> flexRoute = new List<string>();
-                var fixes = new List<Fix>();
 
-                for (int rt_i = routeIdx + 3; rt_i < words.Length; rt_i++)
-                {
-                    if (words[rt_i] == " " || words[rt_i] == "JAPAN" || words[rt_i] == "RCTP/VHHH" || words[rt_i] == "NAR" || words[rt_i] == "RMK") //words[rt_i] != "FLEX"
-                    {
+                while (true) {
+                    if (Array.IndexOf(words, "TRACK") == -1) {
                         break;
                     }
-                    var point = words[rt_i];
 
-                    if (string.IsNullOrWhiteSpace(point)) continue;
+                    var routeIdx = Array.IndexOf(words, "FLEX");
+                    var trackIdx = Array.IndexOf(words, "TRACK");
+                    var trackIdTemp = words[trackIdx + 1];
+                    // Remove period after the track id
+                    var trackId = trackIdTemp.Substring(0, trackIdTemp.Length - 1);
+                    var fixes = new List<Fix>();
 
-                    var isMatch = Regex.Match(point, "[0-9]{2}N[0-9]{3}[E,W]");
-
-                    if (isMatch.Success)
+                    for (int rt_i = routeIdx + 3; rt_i < words.Length; rt_i++)
                     {
-                        // Lat Long
-
-                        double latitude = double.Parse(point.Substring(0, 2));
-
-                        double longitude;
-
-                        if (point.Substring(6, 1) == "E")
+                        string[] _next_route  = {"ROUTE", "RMK"};
+                        if (_next_route.Contains(words[rt_i + 1]))
                         {
-                            longitude = double.Parse(point.Substring(3, 3));
+                            break;
+                        }
+                        var point = words[rt_i];
+
+                        if (string.IsNullOrWhiteSpace(point)) continue;
+
+                        var isMatch = Regex.Match(point, "[0-9]{2}N[0-9]{3}[E,W]");
+
+                        if (isMatch.Success)
+                        {
+                            // Lat Long
+
+                            double latitude = double.Parse(point.Substring(0, 2));
+
+                            double longitude;
+
+                            if (point.Substring(6, 1) == "E")
+                            {
+                                longitude = double.Parse(point.Substring(3, 3));
+                            }
+                            else
+                            {
+                                longitude = -double.Parse(point.Substring(3, 3));
+                            }
+
+                            fixes.Add(new Fix(point, latitude, longitude));
                         }
                         else
                         {
-                            longitude = -double.Parse(point.Substring(3, 3));
-                        }
+                            // Waypoint. Need to check for duplicate  fixes
+                            var fix = Airspace2.GetIntersection(point);
 
-                        fixes.Add(new Fix(point, latitude, longitude));
-                    }
-                    else
-                    {
-                        // Waypoint. Need to check for duplicate  fixes
-                        var fix = Airspace2.GetIntersection(point);
-
-                        if (fix != null)
-                        {
-                            fixes.Add(new Fix(point, fix.LatLong.Latitude, fix.LatLong.Longitude));
-                        }
-                        else
-                        {
-                            Errors.Add(new Exception($"Could not find fix: {point}"), "PACOTS Plugin");
+                            if (fix != null)
+                            {
+                                fixes.Add(new Fix(point, fix.LatLong.Latitude, fix.LatLong.Longitude));
+                            }
+                            else
+                            {
+                                Errors.Add(new Exception($"Could not find fix: {point}"), "PACOTS Plugin");
+                            }
                         }
                     }
+
+                    tracks.Add(new Track(trackId, start, end, fixes));
+                    words =  words.Skip(cutoffIdx).ToArray<string>();
                 }
-                
-                //if (!lines[3].StartsWith("JAPAN ROUTE") || !lines[3].StartsWith("RCTP / VHHH ROUTE")) route += lines[3].Trim();
-
-                
-                tracks.Add(new Track(words[trackIdx + 1], start, end, fixes));
             }
 
-            return tracks; 
+            return tracks;
         }
-            
-        
 
         private static void RemoveTracks()
         {
