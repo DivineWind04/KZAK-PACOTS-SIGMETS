@@ -214,6 +214,7 @@ namespace NATPlugin
                 var start = new DateTime(startYear, startMonth, startDay, startHour, startMin, 0);
                 var end = new DateTime(endYear, endMonth, endDay, endHour, endMin, 0);
 
+                // Some entries may contain multiple tracks
                 while (true) {
                     if (Array.IndexOf(words, "TRACK") == -1) {
                         break;
@@ -228,8 +229,7 @@ namespace NATPlugin
 
                     for (int rt_i = routeIdx + 3; rt_i < words.Length; rt_i++)
                     {
-                        string[] _next_route  = {"ROUTE", "RMK"};
-                        if (_next_route.Contains(words[rt_i + 1]))
+                        if (words[rt_i + 1] == "ROUTE" || words[rt_i] == "RMK")
                         {
                             break;
                         }
