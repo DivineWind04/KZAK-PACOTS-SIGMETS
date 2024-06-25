@@ -215,7 +215,8 @@ namespace NATPlugin
                 var end = new DateTime(endYear, endMonth, endDay, endHour, endMin, 0);
 
                 // Some entries may contain multiple tracks
-                while (true) {
+                while (true)
+                {
                     var trackIdx = words.IndexOf("TRACK");
 
                     // If words doesn't contain the word TRACK, we are done processing this entry
@@ -282,7 +283,7 @@ namespace NATPlugin
 
                     tracks.Add(new Track(trackId, start, end, fixes));
                     // Grab slice after the flex route to see if there are any more tracks to process
-                    words =  words.Skip(cutoffIdx).ToArray<string>();
+                    words = words.Skip(cutoffIdx).ToArray<string>();
                 }
             }
 
