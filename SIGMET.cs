@@ -55,20 +55,8 @@ namespace NATPlugin
         [JsonPropertyName("top")]
         public int? Top { get; set; }
 
-        [JsonPropertyName("geom")]
-        public string Geom { get; set; }
-
         [JsonPropertyName("coords")]
         public List<Coord> Coords { get; set; }
-
-        [JsonPropertyName("dir")]
-        public string Dir { get; set; }
-
-        [JsonPropertyName("spd")]
-        public int? Spd { get; set; }
-
-        [JsonPropertyName("chng")]
-        public string Chng { get; set; }
 
         [JsonPropertyName("rawSigmet")]
         public string RawSigmet { get; set; }
