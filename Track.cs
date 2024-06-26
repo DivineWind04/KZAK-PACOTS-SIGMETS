@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace NATPlugin
 {
@@ -22,6 +23,7 @@ namespace NATPlugin
         public string end { get; set; }
         public List<Fix> Fixes { get; set; } = new List<Fix>();
 
+        public string RouteDisplay => string.Join(" ", Fixes.Select(x => x.Name));
         public DateTime Start2 => DateTimeOffset.FromUnixTimeSeconds(long.Parse(start)).DateTime;
 
         public DateTime End2 => DateTimeOffset.FromUnixTimeSeconds(long.Parse(end)).DateTime;

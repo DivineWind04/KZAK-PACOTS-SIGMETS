@@ -7,8 +7,8 @@
     <ProjectGuid>{68670E8E-72E6-47C1-AF00-457A52CF38EC}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>NATPlugin</RootNamespace>
-    <AssemblyName>NATPlugin</AssemblyName>
+    <RootNamespace>PACOTSPlugin</RootNamespace>
+    <AssemblyName>PACOTSPlugin</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -120,6 +120,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Fix.cs" />
+    <Compile Include="TDMWindow.cs">
+      <SubType>designer</SubType>
+    </Compile>
+    <Compile Include="TDMWindow.designer.cs">
+      <DependentUpon>TDMWindow.cs</DependentUpon>
+    </Compile>
     <Compile Include="Plugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
@@ -144,6 +150,9 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="TDMWindow.resx">
+      <DependentUpon>TDMWindow.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>

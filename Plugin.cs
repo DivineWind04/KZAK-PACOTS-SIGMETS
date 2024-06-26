@@ -13,6 +13,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Timers;
+using System.Windows.Forms;
 using vatsys;
 using vatsys.Plugin;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
@@ -43,10 +44,16 @@ namespace NATPlugin
 
         public static event EventHandler TracksUpdated;
 
+        private static CustomToolStripMenuItem _TDMMenu;
+        private static TDMWindow _tdmWindow;
         public Plugin()
         {
+            _TDMMenu = new CustomToolStripMenuItem(CustomToolStripMenuItemWindowType.Main, CustomToolStripMenuItemCategory.Windows, new ToolStripMenuItem("TDM Tracks"));
+            _TDMMenu.Item.Click += TDMMenu_Click;
+            MMI.AddCustomMenuItem(_TDMMenu);
+
             Go();
-            
+            GetSigmets();
             _ = GetSigmets();
 
 
@@ -56,15 +63,23 @@ namespace NATPlugin
             UpdateTimer.Start();
         }
 
-        private void DataTimer_Elapsed(object sender, ElapsedEventArgs e)
+        private async void DataTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
             Go();
-;
+            GetSigmets();
             _ = GetSigmets();
 
-        }
+        private static void ShowtdmWindow()
+        {
+            MMI.InvokeOnGUI((MethodInvoker)delegate ()
+            {
+                if (_tdmWindow == null || _tdmWindow.IsDisposed)
+                {
+                    _tdmWindow = new TDMWindow();
+                }
+                else if (_tdmWindow.Visible) return;
 
-        public static async void Go()
+        public static void Go()
         {
             RemoveTracks();
 
@@ -123,6 +138,7 @@ namespace NATPlugin
             //string start;
             //string end;
 
+            //KZAK PACOTS Formatting
             foreach (var tdElement in tdElements)
             {
                 if (!tdElement.InnerHtml.Contains("TDM TRK")) continue;
@@ -189,7 +205,7 @@ namespace NATPlugin
 
                 tracks.Add(new Track(info[4], start, end, fixes));
             }
-
+            //RJJJ ATMC PACOTS Formatting
            foreach (var tdElement in tdElements)
            {
                 if (!tdElement.InnerHtml.Contains("EASTBOUND PACOTS")) continue;
@@ -296,7 +312,9 @@ namespace NATPlugin
             {
                 var ra = RestrictedAreas.Instance.Areas.FirstOrDefault(x => x.Name == $"TDM {track.Id}");
 
-                if (ra == null) continue;
+                var currentTdm = ra.IsActive();
+
+                if (ra == null || currentTdm) continue;
 
                 RestrictedAreas.Instance.Areas.Remove(ra);
             }
