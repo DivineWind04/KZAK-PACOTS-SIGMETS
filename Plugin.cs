@@ -46,7 +46,7 @@ namespace NATPlugin
         public Plugin()
         {
             Go();
-            GetSigmets();
+            
             _ = GetSigmets();
 
 
@@ -59,18 +59,18 @@ namespace NATPlugin
         private void DataTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
             Go();
-            GetSigmets();
+;
             _ = GetSigmets();
 
         }
 
-        public static void Go()
+        public static async void Go()
         {
             RemoveTracks();
 
             try
             {
-
+                await GetSigmets();
                 Tracks = GetTracks();
 
                 foreach (var track in Tracks.OrderBy(x => x.Id))
@@ -196,7 +196,7 @@ namespace NATPlugin
 
                 var words = (IList<string>) new ArraySegment<string>(tdElement.InnerHtml.Replace('\n', ' ').Split(' '));
 
-                var untilIdx = Array.IndexOf(words, "UNTIL");
+                var untilIdx = words.IndexOf("UNTIL");
                 var startYear = int.Parse(words[untilIdx-1]);
                 var startMonth = Array.IndexOf(_months, words[untilIdx-3]);
 
