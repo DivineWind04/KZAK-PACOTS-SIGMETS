@@ -53,7 +53,6 @@ namespace NATPlugin
             MMI.AddCustomMenuItem(_TDMMenu);
 
             Go();
-            GetSigmets();
             _ = GetSigmets();
 
 
@@ -66,8 +65,14 @@ namespace NATPlugin
         private async void DataTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
             Go();
-            GetSigmets();
-            _ = GetSigmets();
+            await GetSigmets();
+
+        }
+
+        private void TDMMenu_Click(object sender, EventArgs e)
+        {
+            ShowtdmWindow();
+        }
 
         private static void ShowtdmWindow()
         {
@@ -79,7 +84,10 @@ namespace NATPlugin
                 }
                 else if (_tdmWindow.Visible) return;
 
-        public static void Go()
+                _tdmWindow.Show();
+            });
+        }
+        public static async void Go()
         {
             RemoveTracks();
 
@@ -339,10 +347,8 @@ namespace NATPlugin
 
             var sigmets = JsonSerializer.Deserialize<Sigmet>(content);
 
-            var coordinates = JsonSerializer.Deserialize<Coord>(content);
+            //var coordinates = JsonSerializer.Deserialize<Coord>(content);
 
-            double latitude = coordinates.Lat;
-            double longitude = coordinates.Lon;
 
             var from = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets.ValidTimeFrom.ToString("HHmm"))).DateTime;
             var to = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets.ValidTimeTo.ToString("HHmm"))).DateTime;
@@ -353,7 +359,8 @@ namespace NATPlugin
 
                 for (int c = 0; c < sig.Coords.Count; c++)
                 {
-
+                    double latitude = sigmets.Coords[c].Lat;
+                    double longitude = sigmets.Coords[c].Lon;
                     points.Add(new Fix(sig.IsigmetId.ToString(), latitude, longitude));
 
                     poly.Add(new Track(sig.IsigmetId.ToString(), from, to, points));
