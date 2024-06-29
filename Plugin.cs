@@ -130,42 +130,42 @@ namespace NATPlugin
                 Errors.Add(new Exception($"Error loading tracks: {ex.Message}"), "PACOTS Plugin");
             }
 
-            try
-            {
-
-                foreach (var sigmet in Sigmets.OrderBy(x => x.SeriesId))
-                {
-                    var area = new RestrictedAreas.RestrictedArea.Boundary();
-
-                    foreach (var point in sigmet.Coords)
-                    {
-                        area.List.Add(new Coordinate(((float)point.Lat), ((float)point.Lon)));
-                    }
-
-                    var activiations = new List<RestrictedAreas.RestrictedArea.Activation>
-                    {
-                        new RestrictedAreas.RestrictedArea.Activation(sigmet.ValidTimeFrom.ToString(), sigmet.ValidTimeTo.ToString())
-                    };
-
-                    var ra = new RestrictedAreas.RestrictedArea($"SIG {sigmet.SeriesId}", RestrictedAreas.AreaTypes.Danger, 0, sigmet.Top.Value)
-                    {
-                        Area = area,
-                        LinePattern = DisplayMaps.Map.Patterns.Solid,
-                        DAIWEnabled = true,
-                        Activations = activiations
-                    };
-
-                    RestrictedAreas.Instance.Areas.Add(ra);
-                }
-
-                LastUpdated = DateTime.UtcNow;
-
-                TracksUpdated?.Invoke(null, new EventArgs());
-            }
-            catch (Exception ex)
-            {
-                Errors.Add(new Exception($"Error loading SIGMET: {ex.Message}"), "PACOTS Plugin");
-            }
+            //try
+            //{
+            //
+            //    foreach (var sigmet in Tracks.OrderBy(x => x.Id))
+            //    {
+            //        var area = new RestrictedAreas.RestrictedArea.Boundary();
+            //
+            //        foreach (var point in sigmet.)
+            //        {
+            //            area.List.Add(new Coordinate(((float)point.Lat), ((float)point.Lon)));
+            //        }
+            //
+            //        var activiations = new List<RestrictedAreas.RestrictedArea.Activation>
+            //        {
+            //            new RestrictedAreas.RestrictedArea.Activation(sigmet.ValidTimeFrom.ToString(), sigmet.ValidTimeTo.ToString())
+            //        };
+            //
+            //        var ra = new RestrictedAreas.RestrictedArea($"SIG {sigmet.SeriesId}", RestrictedAreas.AreaTypes.Danger, 0, sigmet.Top.Value)
+            //        {
+            //            Area = area,
+            //            LinePattern = DisplayMaps.Map.Patterns.Solid,
+            //            DAIWEnabled = true,
+            //            Activations = activiations
+            //        };
+            //
+            //        RestrictedAreas.Instance.Areas.Add(ra);
+            //    }
+            //
+            //    LastUpdated = DateTime.UtcNow;
+            //
+            //    TracksUpdated?.Invoke(null, new EventArgs());
+            //}
+            //catch (Exception ex)
+            //{
+            //    Errors.Add(new Exception($"Error loading SIGMET: {ex.Message}"), "PACOTS Plugin");
+            //}
 
         }
 
@@ -272,8 +272,13 @@ namespace NATPlugin
                 var endHour = int.Parse(endTimeSplit[0]);
                 var endMin = int.Parse(endTimeSplit[1]);
 
+                if (startDay != DateTime.Today.Day) continue;
+                
                 var start = new DateTime(startYear, startMonth, startDay, startHour, startMin, 0);
                 var end = new DateTime(endYear, endMonth, endDay, endHour, endMin, 0);
+                
+               
+
 
                 // Some entries may contain multiple tracks
                 while (true)
@@ -350,23 +355,6 @@ namespace NATPlugin
 
             return tracks;
         }
-
-        private static void RemoveTracks()
-        {
-            foreach (var track in Tracks)
-            {
-                var ra = RestrictedAreas.Instance.Areas.FirstOrDefault(x => x.Name == $"TDM {track.Id}");
-
-                var currentTdm = ra.IsActive();
-
-                if (ra == null || currentTdm) continue;
-
-                RestrictedAreas.Instance.Areas.Remove(ra);
-            }
-
-            Tracks.Clear();
-        }
-
         public static async Task<List<Track>> GetSigmets()
         {
             var getSigmet = await _httpClient.GetAsync(SigmetUrl);
@@ -390,29 +378,49 @@ namespace NATPlugin
 
 
             for (int s = 0; s < sigmets.Count; s++)
+            {
+
+                if (sigmets[s].FirId != "KZAK") continue;
+
+                var kzakSig = sigmets[s].FirId == "KZAK";
+
+                if (kzakSig)
                 {
-
-                    if (sigmets[s].FirId != "KZAK") continue;
-
-
 
                     for (int c = 0; c < sigmets[s].Coords.Count; c++)
                     {
                         double latitude = sigmets[s].Coords[c].Lat;
                         double longitude = sigmets[s].Coords[c].Lon;
 
-                        var from = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets[s].ValidTimeFrom.ToString("HHmm"))).DateTime;
-                        var to = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets[s].ValidTimeTo.ToString("HHmm"))).DateTime;
+                        var from = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets[s].ValidTimeFrom.ToString())).DateTime;
+                        var to = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets[s].ValidTimeTo.ToString())).DateTime;
 
-                        points.Add(new Fix(sigmets[s].IsigmetId.ToString(), latitude, longitude));
+                        points.Add(new Fix(sigmets[s].Coords[c].Lat.ToString() + sigmets[s].Coords[c].Lon.ToString(), latitude, longitude));
 
-                        poly.Add(new Track(sigmets[s].IsigmetId.ToString(), from, to, points));
+                        poly.Add(new Track(sigmets[s].SeriesId, from, to, points));
                     }
-
                 }
+            }
 
 
             return poly;
+        }
+        private static void RemoveTracks()
+        {
+            foreach (var track in Tracks)
+            {
+                var ra = RestrictedAreas.Instance.Areas.FirstOrDefault(x => x.Name == $"TDM {track.Id}");
+
+                var currentTdm = ra.IsActive();
+
+                if (ra == null) continue;
+
+                if (!currentTdm)
+
+                RestrictedAreas.Instance.Areas.Remove(ra);
+            }
+
+            Tracks.Clear();
         }
 
         public static DateTime ToDateTime(string input) => new DateTime(int.Parse(input.Substring(0, 2)), int.Parse(input.Substring(2, 2)), int.Parse(input.Substring(4, 2)), int.Parse(input.Substring(6, 2)), int.Parse(input.Substring(8, 2)), 0, DateTimeKind.Utc);
