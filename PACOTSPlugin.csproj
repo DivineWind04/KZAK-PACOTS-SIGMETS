@@ -120,6 +120,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Fix.cs" />
+    <Compile Include="Sigmets.cs" />
     <Compile Include="TDMWindow.cs">
       <SubType>designer</SubType>
     </Compile>
@@ -138,7 +139,7 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
-    <Compile Include="SIGMET.cs" />
+    <Compile Include="SIGAPI.cs" />
     <Compile Include="Track.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -164,6 +165,9 @@
   </ItemGroup>
   <ItemGroup>
     <WCFMetadata Include="Connected Services\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="kzaksigmets.exe" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="packages\System.Text.Json.6.0.1\build\System.Text.Json.targets" Condition="Exists('packages\System.Text.Json.6.0.1\build\System.Text.Json.targets')" />
