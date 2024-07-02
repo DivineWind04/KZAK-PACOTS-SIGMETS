@@ -16,12 +16,9 @@ using System.Timers;
 using System.Windows.Forms;
 using vatsys;
 using vatsys.Plugin;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
-using static vatsys.Airspace2;
-using static vatsys.DefaultJurisdiction;
-using static vatsys.DisplayMaps.Map.Label;
-using static vatsys.SectorsVolumes;
 using Timer = System.Timers.Timer;
+using System.Diagnostics;
+using PACOTSPlugin;
 
 namespace NATPlugin
 {
@@ -37,8 +34,7 @@ namespace NATPlugin
         private static readonly int UpdateMinutes = 15;
 
         public static List<Track> Tracks { get; set; } = new List<Track>();
-
-        public static List<Sigmet> Sigmets { get; set; } = new List<Sigmet>();
+        public static List<Sigmets> Sigmets { get; set; } = new List<Sigmets>();
         public static DateTime? LastUpdated { get; set; }
         private static Timer UpdateTimer { get; set; } = new Timer();
 
@@ -52,6 +48,7 @@ namespace NATPlugin
             _TDMMenu.Item.Click += TDMMenu_Click;
             MMI.AddCustomMenuItem(_TDMMenu);
 
+           // StartProgram();
             Go();
             _ = GetSigmets();
 
@@ -61,7 +58,10 @@ namespace NATPlugin
             UpdateTimer.AutoReset = true;
             UpdateTimer.Start();
         }
-
+        static void StartProgram()
+        {
+            Process.Start("C:\\Users\\domyn\\source\\repos\\KZAK-PACOTS-SIGMETS\\kzaksigmets.exe");
+        }
         private async void DataTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
             Go();
@@ -92,9 +92,9 @@ namespace NATPlugin
             RemoveTracks();
 
             try
-            {
-                await GetSigmets();
+            {                
                 Tracks = GetTracks();
+                
 
                 foreach (var track in Tracks.OrderBy(x => x.Id))
                 {
@@ -132,34 +132,35 @@ namespace NATPlugin
 
             try
             {
-
-                foreach (var sigmet in Sigmets.OrderBy(x => x.SeriesId))
+                Sigmets = await GetSigmets();
+           
+                foreach (var sigmet in Sigmets)
                 {
                     var area = new RestrictedAreas.RestrictedArea.Boundary();
-
-                    foreach (var point in sigmet.Coords)
+            
+                    foreach (var point in sigmet.Fixes)
                     {
-                        area.List.Add(new Coordinate(((float)point.Lat), ((float)point.Lon)));
+                        area.List.Add(new Coordinate(((float)point.Latitude), ((float)point.Longitude)));
                     }
-
+            
                     var activiations = new List<RestrictedAreas.RestrictedArea.Activation>
                     {
-                        new RestrictedAreas.RestrictedArea.Activation(sigmet.ValidTimeFrom.ToString(), sigmet.ValidTimeTo.ToString())
+                        new RestrictedAreas.RestrictedArea.Activation(sigmet.StartDisplay, sigmet.EndDisplay)
                     };
-
-                    var ra = new RestrictedAreas.RestrictedArea($"SIG {sigmet.SeriesId}", RestrictedAreas.AreaTypes.Danger, 0, sigmet.Top.Value)
+            
+                    var ra = new RestrictedAreas.RestrictedArea($"SIG {sigmet.Id}", RestrictedAreas.AreaTypes.Danger, 0, 999)
                     {
                         Area = area,
                         LinePattern = DisplayMaps.Map.Patterns.Solid,
                         DAIWEnabled = true,
                         Activations = activiations
                     };
-
+            
                     RestrictedAreas.Instance.Areas.Add(ra);
                 }
-
+            
                 LastUpdated = DateTime.UtcNow;
-
+            
                 TracksUpdated?.Invoke(null, new EventArgs());
             }
             catch (Exception ex)
@@ -235,9 +236,9 @@ namespace NATPlugin
                     {
                         // Waypoint. Need to check for duplicate  fixes
                         var fix = Airspace2.GetIntersection(point);
-                        var Intersections = new List<Airspace2.Intersection>();
+                        var intersections = new List<Airspace2.Intersection>();
 
-                        if (fix != Intersections.Distinct())
+                        if (fix != intersections.Distinct())
                         {
                             fixes.Add(new Fix(point, fix.LatLong.Latitude, fix.LatLong.Longitude));
                         }
@@ -272,8 +273,13 @@ namespace NATPlugin
                 var endHour = int.Parse(endTimeSplit[0]);
                 var endMin = int.Parse(endTimeSplit[1]);
 
+                if (startDay != DateTime.Today.Day) continue;
+                
                 var start = new DateTime(startYear, startMonth, startDay, startHour, startMin, 0);
                 var end = new DateTime(endYear, endMonth, endDay, endHour, endMin, 0);
+                
+               
+
 
                 // Some entries may contain multiple tracks
                 while (true)
@@ -350,30 +356,13 @@ namespace NATPlugin
 
             return tracks;
         }
-
-        private static void RemoveTracks()
-        {
-            foreach (var track in Tracks)
-            {
-                var ra = RestrictedAreas.Instance.Areas.FirstOrDefault(x => x.Name == $"TDM {track.Id}");
-
-                var currentTdm = ra.IsActive();
-
-                if (ra == null || currentTdm) continue;
-
-                RestrictedAreas.Instance.Areas.Remove(ra);
-            }
-
-            Tracks.Clear();
-        }
-
-        public static async Task<List<Track>> GetSigmets()
+        public static async Task<List<Sigmets>> GetSigmets()
         {
             var getSigmet = await _httpClient.GetAsync(SigmetUrl);
 
             var points = new List<Fix>();
 
-            var poly = new List<Track>();
+            var poly = new List<Sigmets>();
 
             if (!getSigmet.IsSuccessStatusCode)
             {
@@ -384,41 +373,55 @@ namespace NATPlugin
 
             var sigmets = JsonSerializer.Deserialize<List<Sigmet>>(content);
 
-            var coordinates = JsonSerializer.Deserialize<Coord>(content);
-
-
-
+            var coordinates = JsonSerializer.Deserialize<List<Coord>>(content);
 
             for (int s = 0; s < sigmets.Count; s++)
+            {
+
+                    if (sigmets[s].FirId != "KZAK") continue;
+
+                var kzakSig = sigmets[s].FirId == "KZAK";
+
+                if (kzakSig)
                 {
-
-                    points.Add(new Fix(sig.IsigmetId.ToString(), latitude, longitude));
-
-                    poly.Add(new Track(sig.IsigmetId.ToString(), from, to, points));
-                }
-
-
 
                     for (int c = 0; c < sigmets[s].Coords.Count; c++)
                     {
                         double latitude = sigmets[s].Coords[c].Lat;
                         double longitude = sigmets[s].Coords[c].Lon;
 
-                        var from = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets[s].ValidTimeFrom.ToString("HHmm"))).DateTime;
-                        var to = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets[s].ValidTimeTo.ToString("HHmm"))).DateTime;
-
-                        points.Add(new Fix(sigmets[s].IsigmetId.ToString(), latitude, longitude));
-
-                        poly.Add(new Track(sigmets[s].IsigmetId.ToString(), from, to, points));
+                        points.Add(new Fix(sigmets[s].Coords[c].Lat + sigmets[s].Coords[c].Lon.ToString(), latitude, longitude));
                     }
 
+                    var from = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets[s].ValidTimeFrom.ToString())).DateTime;
+                    var to = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets[s].ValidTimeTo.ToString())).DateTime;
+
+                    poly.Add(new Sigmets(sigmets[s].SeriesId, from, to, points));
                 }
+            }
 
 
             return poly;
         }
+        private static void RemoveTracks()
+        {
+            foreach (var track in Tracks)
+            {
+                var ra = RestrictedAreas.Instance.Areas.FirstOrDefault(x => x.Name == $"TDM {track.Id}");
 
-        public static DateTime ToDateTime(string input) => new DateTime(int.Parse(input.Substring(0, 2)), int.Parse(input.Substring(2, 2)), int.Parse(input.Substring(4, 2)), int.Parse(input.Substring(6, 2)), int.Parse(input.Substring(8, 2)), 0, DateTimeKind.Utc);
+                var currentTdm = ra.IsActive();
+
+                if (ra == null) continue;
+
+                if (!currentTdm)
+
+                RestrictedAreas.Instance.Areas.Remove(ra);
+            }
+
+            Tracks.Clear();
+        }
+
+        public static DateTime ToDateTime(string input) => new DateTime(2000 + int.Parse(input.Substring(0, 2)), int.Parse(input.Substring(2, 2)), int.Parse(input.Substring(4, 2)), int.Parse(input.Substring(6, 2)), int.Parse(input.Substring(8, 2)), 0, DateTimeKind.Utc);
 
         public void OnFDRUpdate(FDP2.FDR updated)
         {
