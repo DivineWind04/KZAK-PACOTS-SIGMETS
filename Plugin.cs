@@ -130,6 +130,43 @@ namespace NATPlugin
                 Errors.Add(new Exception($"Error loading tracks: {ex.Message}"), "PACOTS Plugin");
             }
 
+            try
+            {
+
+                foreach (var sigmet in Sigmets.OrderBy(x => x.SeriesId))
+                {
+                    var area = new RestrictedAreas.RestrictedArea.Boundary();
+
+                    foreach (var point in sigmet.Coords)
+                    {
+                        area.List.Add(new Coordinate(((float)point.Lat), ((float)point.Lon)));
+                    }
+
+                    var activiations = new List<RestrictedAreas.RestrictedArea.Activation>
+                    {
+                        new RestrictedAreas.RestrictedArea.Activation(sigmet.ValidTimeFrom.ToString(), sigmet.ValidTimeTo.ToString())
+                    };
+
+                    var ra = new RestrictedAreas.RestrictedArea($"SIG {sigmet.SeriesId}", RestrictedAreas.AreaTypes.Danger, 0, sigmet.Top.Value)
+                    {
+                        Area = area,
+                        LinePattern = DisplayMaps.Map.Patterns.Solid,
+                        DAIWEnabled = true,
+                        Activations = activiations
+                    };
+
+                    RestrictedAreas.Instance.Areas.Add(ra);
+                }
+
+                LastUpdated = DateTime.UtcNow;
+
+                TracksUpdated?.Invoke(null, new EventArgs());
+            }
+            catch (Exception ex)
+            {
+                Errors.Add(new Exception($"Error loading SIGMET: {ex.Message}"), "PACOTS Plugin");
+            }
+
         }
 
         public static List<Track> GetTracks()
@@ -330,7 +367,7 @@ namespace NATPlugin
             Tracks.Clear();
         }
 
-        public static async Task GetSigmets()
+        public static async Task<List<Track>> GetSigmets()
         {
             var getSigmet = await _httpClient.GetAsync(SigmetUrl);
 
@@ -340,70 +377,45 @@ namespace NATPlugin
 
             if (!getSigmet.IsSuccessStatusCode)
             {
-                return;
+                return poly;
             }
 
             var content = await getSigmet.Content.ReadAsStringAsync();
 
-            var sigmets = JsonSerializer.Deserialize<Sigmet>(content);
+            var sigmets = JsonSerializer.Deserialize<List<Sigmet>>(content);
 
-            //var coordinates = JsonSerializer.Deserialize<Coord>(content);
+            var coordinates = JsonSerializer.Deserialize<Coord>(content);
 
 
-            var from = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets.ValidTimeFrom.ToString("HHmm"))).DateTime;
-            var to = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets.ValidTimeTo.ToString("HHmm"))).DateTime;
 
-            foreach (var sig in Sigmets)
-            {
-                if (sig.FirId != "KZAK") continue;
 
-                for (int c = 0; c < sig.Coords.Count; c++)
+            for (int s = 0; s < sigmets.Count; s++)
                 {
-                    double latitude = sigmets.Coords[c].Lat;
-                    double longitude = sigmets.Coords[c].Lon;
+
                     points.Add(new Fix(sig.IsigmetId.ToString(), latitude, longitude));
 
                     poly.Add(new Track(sig.IsigmetId.ToString(), from, to, points));
                 }
 
-            }
 
-            try
-            {
 
-                foreach (var sigmet in Sigmets.OrderBy(x => x.SeriesId))
-                {
-                    var area = new RestrictedAreas.RestrictedArea.Boundary();
-
-                    foreach (var point in sigmet.Coords)
+                    for (int c = 0; c < sigmets[s].Coords.Count; c++)
                     {
-                        area.List.Add(new Coordinate(coordinates.Lat, coordinates.Lon));
+                        double latitude = sigmets[s].Coords[c].Lat;
+                        double longitude = sigmets[s].Coords[c].Lon;
+
+                        var from = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets[s].ValidTimeFrom.ToString("HHmm"))).DateTime;
+                        var to = DateTimeOffset.FromUnixTimeSeconds(long.Parse(sigmets[s].ValidTimeTo.ToString("HHmm"))).DateTime;
+
+                        points.Add(new Fix(sigmets[s].IsigmetId.ToString(), latitude, longitude));
+
+                        poly.Add(new Track(sigmets[s].IsigmetId.ToString(), from, to, points));
                     }
 
-                    var activiations = new List<RestrictedAreas.RestrictedArea.Activation>
-                    {
-                        new RestrictedAreas.RestrictedArea.Activation(from.ToString(), to.ToString())
-                    };
-
-                    var ra = new RestrictedAreas.RestrictedArea($"SIG {sigmet.SeriesId}", RestrictedAreas.AreaTypes.Danger, 0, sigmet.Top.Value)
-                    {
-                        Area = area,
-                        LinePattern = DisplayMaps.Map.Patterns.Solid,
-                        DAIWEnabled = true,
-                        Activations = activiations
-                    };
-
-                    RestrictedAreas.Instance.Areas.Add(ra);
                 }
 
-                LastUpdated = DateTime.UtcNow;
 
-                TracksUpdated?.Invoke(null, new EventArgs());
-            }
-            catch (Exception ex)
-            {
-                Errors.Add(new Exception($"Error loading SIGMET: {ex.Message}"), "PACOTS Plugin");
-            }
+            return poly;
         }
 
         public static DateTime ToDateTime(string input) => new DateTime(int.Parse(input.Substring(0, 2)), int.Parse(input.Substring(2, 2)), int.Parse(input.Substring(4, 2)), int.Parse(input.Substring(6, 2)), int.Parse(input.Substring(8, 2)), 0, DateTimeKind.Utc);
