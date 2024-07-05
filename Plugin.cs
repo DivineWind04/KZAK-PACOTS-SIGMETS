@@ -237,10 +237,12 @@ namespace NATPlugin
                         // Waypoint. Need to check for duplicate  fixes
                         var fix = Airspace2.GetIntersection(point);
                         var intersections = new List<Airspace2.Intersection>();
+                        var relativeFix = Conversions.CalculateDistance(fix.LatLong, Conversions.ConvertToCoordinate(fixes[fixes.Count - 1].Coordinate()));
 
-                        if (fix != intersections.Distinct())
+                        // Finding out how many times fix appears in fixes db (dup)
+                        if (intersections.IndexOf(fix) != intersections.LastIndexOf(fix) && relativeFix > 1000)
                         {
-                            fixes.Add(new Fix(point, fix.LatLong.Latitude, fix.LatLong.Longitude));
+                                fixes.Add(new Fix(point, fix.LatLong.Latitude, fix.LatLong.Longitude));                           
                         }
                         else
                         {
