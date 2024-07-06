@@ -19,6 +19,8 @@ using vatsys.Plugin;
 using Timer = System.Timers.Timer;
 using System.Diagnostics;
 using PACOTSPlugin;
+using System.Dynamic;
+using static vatsys.Airspace2;
 
 namespace NATPlugin
 {
@@ -211,7 +213,7 @@ namespace NATPlugin
                     if (string.IsNullOrWhiteSpace(point)) continue;
 
                     var isMatch = Regex.Match(point, "[0-9]{2}N[0-9]{3}[E,W]");
-
+                    var isAirway = Regex.Match(point, "[A-Z]{1}[0-9]{3}");
 
                     if (isMatch.Success)
                     {
@@ -232,22 +234,56 @@ namespace NATPlugin
 
                         fixes.Add(new Fix(point, latitude, longitude));
                     }
+                    else if (isAirway.Success)
+                    {
+                        // Airway
+                        var awy = Airspace2.GetAirway(point);
+
+                        for (int f = 0; f < awy.Intersections.Count; f++)
+                        {
+                            var enclosedAwy = awy.Intersections.GetRange(point[f] - 1, point[f] + 1);
+
+                            fixes.Add(new Fix(enclosedAwy[f].Name, awy.Intersections[f].LatLong.Latitude, awy.Intersections[f].LatLong.Longitude));
+                        }
+
+                    }
                     else
                     {
-                        // Waypoint. Need to check for duplicate  fixes
+                        // Waypoint
+                        
                         var fix = Airspace2.GetIntersection(point);
                         var intersections = new List<Airspace2.Intersection>();
-                        var relativeFix = Conversions.CalculateDistance(fix.LatLong, Conversions.ConvertToCoordinate(fixes[fixes.Count - 1].Coordinate()));
 
-                        // Finding out how many times fix appears in fixes db (dup)
-                        if (intersections.IndexOf(fix) != intersections.LastIndexOf(fix) && relativeFix > 1000)
+                        var fix1 = intersections.IndexOf(fix);
+                        var fix2 = intersections.LastIndexOf(fix);
+
+                        // Finding out if fix appears in fixes db more than once. If so, find shortest distance from previous fix and return fix
+                        if (fix != null && fix1 != fix2)
                         {
-                                fixes.Add(new Fix(point, fix.LatLong.Latitude, fix.LatLong.Longitude));                           
+                            var relativeFix1 = Conversions.CalculateDistance(intersections[fix1].LatLong, Conversions.ConvertToCoordinate(fixes[fixes.Count - 1].Coordinate()));
+                            var relativeFix2 = Conversions.CalculateDistance(intersections[fix2].LatLong, Conversions.ConvertToCoordinate(fixes[fixes.Count - 1].Coordinate()));
+
+
+
+                            if (relativeFix1 > relativeFix2)
+                            {
+                                fixes.Add(new Fix(point, intersections[fix2].LatLong.Latitude, intersections[fix2].LatLong.Longitude));
+                            }
+                            else if (relativeFix1 < relativeFix2)
+                            {
+                                fixes.Add(new Fix(point, intersections[fix1].LatLong.Latitude, intersections[fix1].LatLong.Longitude));
+                            }
+
+                        }
+                        else if (fix != null && fix1 == fix2)
+                        {
+                            fixes.Add(new Fix(point, fix.LatLong.Latitude, fix.LatLong.Longitude));
                         }
                         else
                         {
                             Errors.Add(new Exception($"Could not find fix: {point}"), "PACOTS Plugin");
                         }
+
                     }
                 }
 
@@ -314,6 +350,8 @@ namespace NATPlugin
                         if (string.IsNullOrWhiteSpace(point)) continue;
 
                         var isMatch = Regex.Match(point, "[0-9]{2}N[0-9]{3}[E,W]");
+                        var isAirway = Regex.Match(point, "[A-Z]{1}[0-9]{3}");
+                        var fix = Airspace2.GetIntersection(point);
 
                         if (isMatch.Success)
                         {
@@ -334,12 +372,48 @@ namespace NATPlugin
 
                             fixes.Add(new Fix(point, latitude, longitude));
                         }
+                        else if (isAirway.Success)
+                        {
+                            // Airway
+                            var awy = Airspace2.GetAirway(point);
+                            
+                            for (int f = 0; f < awy.Intersections.Count; f++)
+                            {
+                                var enclosedAwy = awy.Intersections.GetRange(fixes.IndexOf(point[f] - 1), point[f] + 1);
+
+                                fixes.Add(new Fix(enclosedAwy[f].Name, awy.Intersections[f].LatLong.Latitude, awy.Intersections[f].LatLong.Longitude));
+                            }
+
+                        }
                         else
                         {
-                            // Waypoint. Need to check for duplicate  fixes
-                            var fix = Airspace2.GetIntersection(point);
+                            // Waypoint
 
-                            if (fix != null)
+                            
+                            var intersections = new List<Airspace2.Intersection>();
+
+                            var fix1 = intersections.IndexOf(fix);
+                            var fix2 = intersections.LastIndexOf(fix);
+
+                            // Finding out if fix appears in fixes db more than once. If so, find shortest distance from previous fix and return fix
+                            if (fix != null && fix1 != fix2)
+                            {
+                                var relativeFix1 = Conversions.CalculateDistance(intersections[fix1].LatLong, Conversions.ConvertToCoordinate(fixes[fixes.Count - 1].Coordinate()));
+                                var relativeFix2 = Conversions.CalculateDistance(intersections[fix2].LatLong, Conversions.ConvertToCoordinate(fixes[fixes.Count - 1].Coordinate()));
+
+
+
+                                if (relativeFix1 > relativeFix2)
+                                {
+                                    fixes.Add(new Fix(point, intersections[fix2].LatLong.Latitude, intersections[fix2].LatLong.Longitude));
+                                }
+                                else if (relativeFix1 < relativeFix2)
+                                {
+                                    fixes.Add(new Fix(point, intersections[fix1].LatLong.Latitude, intersections[fix1].LatLong.Longitude));
+                                }
+
+                            }
+                            else if (fix != null && fix1 == fix2)
                             {
                                 fixes.Add(new Fix(point, fix.LatLong.Latitude, fix.LatLong.Longitude));
                             }
@@ -347,6 +421,7 @@ namespace NATPlugin
                             {
                                 Errors.Add(new Exception($"Could not find fix: {point}"), "PACOTS Plugin");
                             }
+
                         }
                     }
 
