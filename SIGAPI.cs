@@ -2,64 +2,151 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Threading.Tasks;
 
-namespace NATPlugin
+namespace PACOTSPlugin
 {
-    public class Coord
+    public class CoordConverter : JsonConverter<List<List<Coord>>>
     {
-        [JsonPropertyName("lat")]
-        public double Lat { get; set; }
+        public override List<List<Coord>> ReadJson(JsonReader reader, Type objectType, List<List<Coord>> existingValue, bool hasExistingValue, JsonSerializer serializer)
+        {
+            var coords = new List<List<Coord>>();
 
-        [JsonPropertyName("lon")]
-        public double Lon { get; set; }
+            try
+            {
+                if (reader.TokenType == JsonToken.Null)
+                {
+                    return coords;
+                }
+
+                var token = JToken.Load(reader);
+                if (token.Type == JTokenType.Array)
+                {
+                    foreach (var element in token)
+                    {
+                        if (element.Type == JTokenType.Array)
+                        {
+                            // Nested array of coords
+                            var innerList = new List<Coord>();
+                            foreach (var coordElement in element)
+                            {
+                                if (coordElement.Type == JTokenType.Object)
+                                {
+                                    var coord = ParseCoord(coordElement);
+                                    if (coord != null)
+                                    {
+                                        innerList.Add(coord);
+                                    }
+                                }
+                            }
+                            if (innerList.Count > 0)
+                            {
+                                coords.Add(innerList);
+                            }
+                        }
+                        else if (element.Type == JTokenType.Object)
+                        {
+                            // Single coord object
+                            var coord = ParseCoord(element);
+                            if (coord != null)
+                            {
+                                coords.Add(new List<Coord> { coord });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Return empty coords list if parsing fails
+            }
+
+            return coords;
+        }
+
+        private Coord ParseCoord(JToken element)
+        {
+            try
+            {
+                double lat = element["lat"]?.Value<double>() ?? 0;
+                double lon = element["lon"]?.Value<double>() ?? 0;
+                return new Coord { Lat = lat, Lon = lon };
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public override void WriteJson(JsonWriter writer, List<List<Coord>> value, JsonSerializer serializer)
+        {
+            writer.WriteStartArray();
+            foreach (var innerList in value)
+            {
+                writer.WriteStartArray();
+                foreach (var coord in innerList)
+                {
+                    serializer.Serialize(writer, coord);
+                }
+                writer.WriteEndArray();
+            }
+            writer.WriteEndArray();
+        }
     }
-
     public class Sigmet
     {
-        [JsonPropertyName("isigmetId")]
+        [JsonProperty("isigmetId")]
         public int IsigmetId { get; set; }
 
-        [JsonPropertyName("icaoId")]
+        [JsonProperty("icaoId")]
         public string IcaoId { get; set; }
 
-        [JsonPropertyName("firId")]
+        [JsonProperty("firId")]
         public string FirId { get; set; }
 
-        [JsonPropertyName("firName")]
+        [JsonProperty("firName")]
         public string FirName { get; set; }
 
-        [JsonPropertyName("receiptTime")]
+        [JsonProperty("receiptTime")]
         public string ReceiptTime { get; set; }
 
-        [JsonPropertyName("validTimeFrom")]
+        [JsonProperty("validTimeFrom")]
         public int ValidTimeFrom { get; set; }
 
-        [JsonPropertyName("validTimeTo")]
+        [JsonProperty("validTimeTo")]
         public int ValidTimeTo { get; set; }
 
-        [JsonPropertyName("seriesId")]
+        [JsonProperty("seriesId")]
         public string SeriesId { get; set; }
 
-        [JsonPropertyName("hazard")]
+        [JsonProperty("hazard")]
         public string Hazard { get; set; }
 
-        [JsonPropertyName("qualifier")]
+        [JsonProperty("qualifier")]
         public string Qualifier { get; set; }
 
-        [JsonPropertyName("base")]
+        [JsonProperty("base")]
         public int? Base { get; set; }
 
-        [JsonPropertyName("top")]
+        [JsonProperty("top")]
         public int? Top { get; set; }
 
-        [JsonPropertyName("coords")]
-        public List<Coord> Coords { get; set; }
+        [JsonProperty("coords")]
+        [JsonConverter(typeof(CoordConverter))]
+        public List<List<Coord>> Coords { get; set; }
 
-        [JsonPropertyName("rawSigmet")]
+        [JsonProperty("rawSigmet")]
         public string RawSigmet { get; set; }
+    }
+    public class Coord
+    {
+        [JsonProperty("lat")]
+        public double Lat { get; set; }
+
+        [JsonProperty("lon")]
+        public double Lon { get; set; }
     }
 
 }
